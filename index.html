@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>부캐 vs 본캐 밸런스 게임</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+/* Layout: 한 화면 게임. 상단 줄다리기 게이지 → 라운드 카드 2장(A/B) → 결과 카드 */
+:root{
+  --night:#0d1b3d; --panel:#16285a; --line:#2b4384;
+  --ink:#eef3ff; --muted:#9fb1dc;
+  --virtual:#a46bff; --real:#3fb5ff; --gold:#ffcf4a;
+  --display:"Black Han Sans","Noto Sans KR",sans-serif;
+  --body:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --soft:"Gowun Dodum","Noto Sans KR",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--night);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6;
+  background-image:radial-gradient(circle at 12% 0%,rgba(164,107,255,.18),transparent 45%),radial-gradient(circle at 90% 100%,rgba(63,181,255,.16),transparent 45%);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+h1,h2{font-family:var(--display);font-weight:400;text-wrap:balance;margin:0;letter-spacing:.01em}
+
+/* 시작 */
+.intro{text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px 8px 20px}
+.badge{font-size:12px;letter-spacing:.12em;color:var(--gold);border:1px solid var(--gold);border-radius:99px;padding:4px 12px}
+.intro h1{font-size:clamp(34px,8vw,64px);line-height:1.1}
+.intro h1 .v{color:var(--virtual)} .intro h1 .r{color:var(--real)}
+.intro p{color:var(--muted);max-width:30em;margin:0}
+.rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;max-width:640px;width:100%;margin-top:6px}
+.rules div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:13px;color:var(--muted)}
+.rules b{display:block;color:var(--ink);font-size:14px;margin-bottom:2px}
+@media(max-width:560px){.rules{grid-template-columns:1fr}}
+.cta{font-family:var(--display);font-size:22px;background:var(--gold);color:var(--night);border:0;border-radius:16px;padding:14px 40px;box-shadow:0 6px 0 #c99a16;transition:transform .1s}
+.cta:active{transform:translateY(4px);box-shadow:0 2px 0 #c99a16}
+
+/* HUD */
+.hud{display:flex;flex-direction:column;gap:10px}
+.hudtop{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.roundno{font-family:var(--display);font-size:22px}
+.roundno span{color:var(--gold)}
+.dots{display:flex;gap:4px;flex-wrap:wrap}
+.dots i{width:14px;height:8px;border-radius:4px;background:var(--line)}
+.dots i.a{background:var(--virtual)} .dots i.b{background:var(--real)} .dots i.now{background:var(--gold)}
+.tug{position:relative;height:34px;border-radius:17px;background:linear-gradient(90deg,var(--virtual),#5a4fb0 45%,#2f6fb8 55%,var(--real));overflow:hidden;border:2px solid var(--line)}
+.tug .lbl{position:absolute;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;letter-spacing:.06em;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.tug .l{left:14px} .tug .rr{right:14px}
+.knot{position:absolute;top:50%;left:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;background:var(--gold);border:3px solid #fff;box-shadow:0 0 0 4px rgba(255,207,74,.3);transition:left .6s cubic-bezier(.3,1.6,.5,1)}
+.timer{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.timer i{display:block;height:100%;width:100%;background:var(--gold);transform-origin:left}
+.timer.low i{background:#ff6b6b}
+
+/* 라운드 */
+.theme{text-align:center;display:flex;flex-direction:column;gap:4px}
+.theme small{color:var(--gold);letter-spacing:.14em;font-size:12px;font-weight:700}
+.theme h2{font-size:clamp(26px,5.5vw,38px)}
+.theme p{color:var(--muted);margin:0;font-family:var(--soft)}
+.arena{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:14px;align-items:stretch}
+.vs{align-self:center;font-family:var(--display);font-size:26px;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:var(--night);border:3px solid var(--gold);color:var(--gold)}
+@media(max-width:640px){.arena{grid-template-columns:1fr}.vs{justify-self:center;width:46px;height:46px;font-size:20px;margin:-6px 0}}
+.card{position:relative;text-align:left;background:var(--panel);border:2px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0;transition:transform .2s,border-color .2s,opacity .3s,box-shadow .2s}
+.card:hover:not([disabled]){transform:translateY(-4px)}
+.card.A:hover:not([disabled]){border-color:var(--virtual);box-shadow:0 10px 30px -10px var(--virtual)}
+.card.B:hover:not([disabled]){border-color:var(--real);box-shadow:0 10px 30px -10px var(--real)}
+.card[disabled]{cursor:default}
+.card.picked.A{border-color:var(--virtual);box-shadow:0 0 0 4px rgba(164,107,255,.25)}
+.card.picked.B{border-color:var(--real);box-shadow:0 0 0 4px rgba(63,181,255,.25)}
+.card.dim{opacity:.38;transform:scale(.97)}
+.tag{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pill{font-size:12px;font-weight:700;border-radius:99px;padding:3px 10px;color:#fff}
+.A .pill{background:var(--virtual)} .B .pill{background:var(--real);color:var(--night)}
+.key{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+.art{height:110px;display:grid;place-items:center;border-radius:14px;background:rgba(255,255,255,.04)}
+.art svg{height:96px;width:auto}
+.sub{font-size:13px;color:var(--muted)}
+.main{font-size:17px;font-weight:700;line-height:1.5;word-break:keep-all}
+.note{font-size:12px;color:var(--muted)}
+.stamp{position:absolute;top:12px;right:12px;font-family:var(--display);font-size:15px;color:var(--gold);border:2px solid var(--gold);border-radius:8px;padding:2px 8px;transform:rotate(8deg)}
+
+.feedback{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between;animation:pop .35s ease-out}
+.feedback p{margin:0;flex:1 1 280px;font-family:var(--soft);font-size:15px}
+.feedback b{color:var(--gold)}
+.next{font-weight:700;background:var(--gold);color:var(--night);border:0;border-radius:12px;padding:10px 22px}
+.hint{text-align:center;color:var(--muted);font-size:13px;margin:0}
+@keyframes pop{from{transform:translateY(8px);opacity:.3}to{transform:none;opacity:1}}
+
+/* 결과 */
+.result{display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center;padding-top:10px}
+.result .kicker{color:var(--gold);letter-spacing:.14em;font-size:12px;font-weight:700}
+.result h1{font-size:clamp(32px,7vw,54px)}
+.result .desc{font-family:var(--soft);max-width:34em;color:var(--ink);margin:0;font-size:16px}
+.score{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.score div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 18px;min-width:120px}
+.score b{display:block;font-family:var(--display);font-size:30px;font-weight:400;font-variant-numeric:tabular-nums}
+.score .sa b{color:var(--virtual)} .score .sb b{color:var(--real)}
+.recap{width:100%;max-width:640px;display:flex;flex-direction:column;gap:8px;text-align:left}
+.recap div{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px}
+.recap em{font-style:normal;color:var(--muted);font-size:12px;white-space:nowrap}
+.scale{width:100%;max-width:760px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.scale div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 6px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px;word-break:keep-all}
+.scale b{color:var(--ink);font-size:13px;line-height:1.3}
+.scale .me{border:2px solid var(--gold);background:#2a3360}
+.scale .me b{color:var(--gold)}
+@media(max-width:560px){.scale{grid-template-columns:1fr}}
+.mission{max-width:640px;width:100%;border:2px dashed var(--gold);border-radius:16px;padding:16px;text-align:left}
+.mission strong{color:var(--gold);display:block;margin-bottom:4px}
+.row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.ghost{background:transparent;border:2px solid var(--line);border-radius:12px;padding:10px 20px;font-weight:700}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+const ICON = {
+  phone:`<svg viewBox="0 0 80 100"><rect x="18" y="6" width="44" height="88" rx="8" fill="#1d2c5c" stroke="#9fb1dc" stroke-width="3"/><rect x="23" y="16" width="34" height="64" rx="3" fill="#2b4384"/><path d="M40 62 C22 50 27 36 36 38 C38 38.5 40 41 40 41 C40 41 42 38.5 44 38 C53 36 58 50 40 62Z" fill="#ff5f7e"/><rect x="44" y="20" width="18" height="10" rx="5" fill="#ff5f7e"/><text x="53" y="28" font-size="7" fill="#fff" text-anchor="middle" font-family="sans-serif" font-weight="700">100</text></svg>`,
+  talk:`<svg viewBox="0 0 110 100"><circle cx="30" cy="30" r="12" fill="#ffd7b0"/><circle cx="80" cy="30" r="12" fill="#ffd7b0"/><path d="M16 90 V58 a14 14 0 0 1 28 0 V90Z" fill="#3fb5ff"/><path d="M66 90 V58 a14 14 0 0 1 28 0 V90Z" fill="#2f6fb8"/><path d="M42 66 L55 72 L68 66" stroke="#ffd7b0" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M55 22 C46 14 49 6 54 9 L55 10 L56 9 C61 6 64 14 55 22Z" fill="#ff5f7e"/></svg>`,
+  monster:`<svg viewBox="0 0 100 100"><path d="M20 80 C10 40 25 12 50 12 C75 12 90 40 80 80 C70 72 62 86 50 78 C38 86 30 72 20 80Z" fill="#a46bff"/><ellipse cx="38" cy="40" rx="8" ry="6" fill="#fff"/><ellipse cx="62" cy="40" rx="8" ry="6" fill="#fff"/><circle cx="39" cy="41" r="3" fill="#1d1040"/><circle cx="61" cy="41" r="3" fill="#1d1040"/><path d="M32 32 L44 36 M68 32 L56 36" stroke="#1d1040" stroke-width="3" stroke-linecap="round"/><rect x="42" y="52" width="16" height="24" rx="3" fill="#1d2c5c" stroke="#fff" stroke-width="2"/><path d="M30 92 c6-8 14-8 20 0 c6 8 14 8 20 0 c-6-8-14-8-20 0 c-6 8-14 8-20 0Z" fill="none" stroke="#ff9ad5" stroke-width="3"/></svg>`,
+  run:`<svg viewBox="0 0 100 100"><circle cx="58" cy="18" r="10" fill="#ffd7b0"/><path d="M56 30 L46 58" stroke="#3fb5ff" stroke-width="12" stroke-linecap="round"/><path d="M52 38 L70 48 M50 40 L32 44" stroke="#ffd7b0" stroke-width="6" stroke-linecap="round"/><path d="M46 58 L62 74 L60 92 M46 58 L34 76 L20 78" stroke="#2f6fb8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M76 34 h12 M78 44 h10 M74 54 h12" stroke="#ffcf4a" stroke-width="3" stroke-linecap="round"/></svg>`,
+  filter:`<svg viewBox="0 0 80 100"><rect x="14" y="6" width="52" height="88" rx="9" fill="#1d2c5c" stroke="#ff9ad5" stroke-width="3"/><rect x="19" y="14" width="42" height="72" rx="4" fill="#3a2a6e"/><circle cx="40" cy="42" r="12" fill="#ffd7b0"/><path d="M26 82 a14 14 0 0 1 28 0Z" fill="#a46bff"/><path d="M8 20 l3 6 6 3 -6 3 -3 6 -3-6 -6-3 6-3Z M70 64 l2 4 4 2 -4 2 -2 4 -2-4 -4-2 4-2Z" fill="#ffcf4a"/></svg>`,
+  calm:`<svg viewBox="0 0 100 100"><circle cx="50" cy="26" r="12" fill="#ffd7b0"/><path d="M44 26 h4 M52 26 h4" stroke="#1d1040" stroke-width="2" stroke-linecap="round"/><path d="M36 40 h28 l6 34 h-40Z" fill="#7e8fb8"/><path d="M14 82 C30 70 70 70 86 82 C70 90 30 90 14 82Z" fill="#2f6fb8"/><path d="M36 54 L24 70 M64 54 L76 70" stroke="#ffd7b0" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="26" r="20" fill="none" stroke="#3fb5ff" stroke-width="2" stroke-dasharray="3 5"/></svg>`,
+  compare:`<svg viewBox="0 0 100 100"><rect x="10" y="20" width="36" height="60" rx="6" fill="#1d2c5c" stroke="#a46bff" stroke-width="3"/><path d="M18 66 l8-14 6 8 6-18" stroke="#ffcf4a" stroke-width="3" fill="none"/><rect x="54" y="20" width="36" height="60" rx="6" fill="#1d2c5c" stroke="#a46bff" stroke-width="3"/><path d="M62 66 l8-20 6 6 6-22" stroke="#ff5f7e" stroke-width="3" fill="none"/><circle cx="50" cy="90" r="6" fill="#ffd7b0"/></svg>`,
+  stairs:`<svg viewBox="0 0 100 100"><path d="M12 86 h18 v-16 h18 v-16 h18 v-16 h18 v48Z" fill="#2f6fb8"/><circle cx="66" cy="22" r="8" fill="#ffd7b0"/><path d="M66 30 v12" stroke="#3fb5ff" stroke-width="8" stroke-linecap="round"/><path d="M28 64 l6-6 M46 48 l6-6" stroke="#ffcf4a" stroke-width="3" stroke-linecap="round"/></svg>`,
+  bed:`<svg viewBox="0 0 100 100"><rect x="10" y="56" width="80" height="18" rx="4" fill="#3a2a6e"/><rect x="14" y="44" width="22" height="14" rx="6" fill="#d9ccff"/><path d="M34 54 h52 v6 h-52Z" fill="#a46bff"/><rect x="46" y="22" width="16" height="26" rx="3" fill="#1d2c5c" stroke="#fff" stroke-width="2"/><path d="M50 30 h8 M50 36 h6" stroke="#a46bff" stroke-width="2"/><path d="M40 30 l-6-4 M68 30 l6-4 M54 16 v-6" stroke="#ffcf4a" stroke-width="2" stroke-linecap="round"/></svg>`,
+  diary:`<svg viewBox="0 0 100 100"><rect x="18" y="16" width="56" height="70" rx="5" fill="#eef3ff"/><rect x="18" y="16" width="10" height="70" fill="#3fb5ff"/><path d="M36 34 h28 M36 44 h28 M36 54 h20" stroke="#7e8fb8" stroke-width="3" stroke-linecap="round"/><path d="M70 72 l14-30 6 3 -14 30 -7 4Z" fill="#ffcf4a"/><circle cx="82" cy="18" r="8" fill="#ffcf4a"/></svg>`,
+  rec:`<svg viewBox="0 0 100 100"><path d="M8 92 q8-14 16 0 q8-16 16 0 q8-14 16 0 q8-16 16 0 q8-14 16 0" fill="#3a2a6e"/><rect x="34" y="14" width="34" height="56" rx="6" fill="#1d2c5c" stroke="#a46bff" stroke-width="3"/><rect x="39" y="22" width="24" height="38" rx="2" fill="#2b4384"/><path d="M44 52 L51 34 L58 52Z" fill="#ffcf4a"/><circle cx="45" cy="27" r="3" fill="#ff5f7e"/><text x="54" y="30" font-size="7" fill="#ff5f7e" font-family="sans-serif" font-weight="700">REC</text><path d="M60 70 l6 12" stroke="#ffd7b0" stroke-width="7" stroke-linecap="round"/></svg>`,
+  eyes:`<svg viewBox="0 0 100 100"><path d="M20 20 L50 8 L80 20 L72 40 H28Z" fill="#2f6fb8"/><path d="M14 40 L50 70 L86 40" stroke="#ffcf4a" stroke-width="2" fill="none" stroke-dasharray="3 4"/><circle cx="50" cy="70" r="12" fill="#ffd7b0"/><path d="M44 68 q3 -3 6 0 M50 68 q3 -3 6 0" stroke="#1d1040" stroke-width="2" fill="none"/><path d="M36 64 l-12 -12 M64 64 l12 -12" stroke="#ffd7b0" stroke-width="6" stroke-linecap="round"/><path d="M38 84 h24 v12 h-24Z" fill="#3fb5ff"/><path d="M16 12 l2 5 5 2 -5 2 -2 5 -2-5 -5-2 5-2Z M84 50 l2 4 4 2 -4 2 -2 4 -2-4 -4-2 4-2Z" fill="#ff9ad5"/></svg>`,
+  skin:`<svg viewBox="0 0 100 100"><circle cx="50" cy="24" r="12" fill="#c9b6ff"/><path d="M28 86 V54 a22 22 0 0 1 44 0 V86Z" fill="#a46bff"/><path d="M40 14 l10 -10 10 10 -4 -2 -6 6 -6 -6Z" fill="#ffcf4a"/><path d="M36 60 h28 M40 70 h20" stroke="#ffcf4a" stroke-width="3" stroke-linecap="round"/><path d="M14 40 l3 6 6 3 -6 3 -3 6 -3-6 -6-3 6-3Z M86 66 l3 6 6 3 -6 3 -3 6 -3-6 -6-3 6-3Z" fill="#ff9ad5"/><text x="50" y="98" font-size="9" fill="#ffcf4a" text-anchor="middle" font-family="sans-serif" font-weight="700">LIMITED</text></svg>`,
+  snack:`<svg viewBox="0 0 100 100"><ellipse cx="50" cy="70" rx="38" ry="14" fill="#eef3ff"/><ellipse cx="50" cy="66" rx="28" ry="9" fill="#ff5f7e"/><path d="M34 64 l10 4 M50 60 l8 6 M60 64 l10 2" stroke="#ffd7b0" stroke-width="5" stroke-linecap="round"/><path d="M30 46 q4 -8 0 -16 M50 44 q4 -8 0 -16 M70 46 q4 -8 0 -16" stroke="#9fb1dc" stroke-width="3" fill="none" stroke-linecap="round"/><rect x="74" y="10" width="8" height="18" rx="4" fill="#3fb5ff"/><path d="M78 28 v8" stroke="#3fb5ff" stroke-width="3"/><text x="22" y="22" font-size="14" fill="#ffcf4a" font-family="sans-serif">♪</text></svg>`,
+  bell:`<svg viewBox="0 0 100 100"><path d="M50 16 C34 16 28 30 28 44 V62 L20 72 H80 L72 62 V44 C72 30 66 16 50 16Z" fill="#a46bff"/><circle cx="50" cy="80" r="7" fill="#ffcf4a"/><circle cx="74" cy="22" r="11" fill="#ff5f7e"/><text x="74" y="26" font-size="11" fill="#fff" text-anchor="middle" font-family="sans-serif" font-weight="700">99</text><path d="M14 34 l-6-4 M86 46 l7-2 M12 50 h-6" stroke="#ffcf4a" stroke-width="3" stroke-linecap="round"/></svg>`,
+  book:`<svg viewBox="0 0 100 100"><path d="M10 26 C26 20 40 22 50 30 C60 22 74 20 90 26 V80 C74 74 60 76 50 84 C40 76 26 74 10 80Z" fill="#eef3ff"/><path d="M50 30 V84" stroke="#3fb5ff" stroke-width="3"/><path d="M18 38 h24 M18 48 h24 M58 38 h24 M58 48 h20" stroke="#7e8fb8" stroke-width="3" stroke-linecap="round"/><circle cx="78" cy="14" r="9" fill="none" stroke="#ffcf4a" stroke-width="3"/><path d="M78 9 v5 l3 3" stroke="#ffcf4a" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>`,
+  bomb:`<svg viewBox="0 0 100 100"><path d="M14 20 h60 a8 8 0 0 1 8 8 v30 a8 8 0 0 1 -8 8 H40 L24 80 V66 h-10 a8 8 0 0 1 -8 -8 V28 a8 8 0 0 1 8 -8Z" fill="#a46bff"/><path d="M24 36 h36 M24 48 h26" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M74 66 l6 -10 4 8 8 -4 -4 10 8 4 -10 2" fill="#ff5f7e"/></svg>`,
+  game:`<svg viewBox="0 0 100 100"><path d="M20 38 h60 a14 14 0 0 1 14 14 l2 18 a8 8 0 0 1 -14 6 l-10 -12 H28 l-10 12 a8 8 0 0 1 -14 -6 l2 -18 A14 14 0 0 1 20 38Z" fill="#a46bff"/><path d="M28 50 v12 M22 56 h12" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="68" cy="52" r="4" fill="#ffcf4a"/><circle cx="76" cy="60" r="4" fill="#ff5f7e"/><text x="50" y="26" font-size="12" fill="#ffcf4a" text-anchor="middle" font-family="sans-serif" font-weight="700">LV.99</text></svg>`,
+  bike:`<svg viewBox="0 0 100 100"><circle cx="24" cy="66" r="16" fill="none" stroke="#3fb5ff" stroke-width="5"/><circle cx="76" cy="66" r="16" fill="none" stroke="#3fb5ff" stroke-width="5"/><path d="M24 66 L42 40 H66 L76 66 M42 40 L54 66 L66 40" stroke="#eef3ff" stroke-width="4" fill="none" stroke-linejoin="round"/><path d="M38 34 h10 M62 32 l6 -6" stroke="#ffcf4a" stroke-width="4" stroke-linecap="round"/><circle cx="82" cy="16" r="8" fill="#ffcf4a"/></svg>`,
+  play:`<svg viewBox="0 0 100 100"><rect x="8" y="20" width="84" height="54" rx="10" fill="#a46bff"/><path d="M42 34 L62 47 L42 60Z" fill="#fff"/><text x="50" y="90" font-size="12" fill="#ffcf4a" text-anchor="middle" font-family="sans-serif" font-weight="700">조회수 100만</text></svg>`,
+  search:`<svg viewBox="0 0 100 100"><rect x="12" y="14" width="40" height="52" rx="4" fill="#eef3ff"/><rect x="24" y="24" width="40" height="52" rx="4" fill="#cfe0ff"/><path d="M32 36 h24 M32 46 h24 M32 56 h16" stroke="#7e8fb8" stroke-width="3" stroke-linecap="round"/><circle cx="66" cy="62" r="14" fill="none" stroke="#3fb5ff" stroke-width="6"/><path d="M76 72 L90 86" stroke="#3fb5ff" stroke-width="8" stroke-linecap="round"/><path d="M60 62 l4 4 8 -8" stroke="#ffcf4a" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`,
+  tvfood:`<svg viewBox="0 0 100 100"><rect x="30" y="10" width="40" height="30" rx="4" fill="#1d2c5c" stroke="#a46bff" stroke-width="3"/><path d="M45 18 L56 25 L45 32Z" fill="#a46bff"/><ellipse cx="50" cy="72" rx="34" ry="12" fill="#eef3ff"/><ellipse cx="50" cy="68" rx="20" ry="7" fill="#ffcf4a"/><path d="M50 44 v14" stroke="#a46bff" stroke-width="3" stroke-dasharray="3 4"/></svg>`,
+  family:`<svg viewBox="0 0 100 100"><rect x="10" y="62" width="80" height="8" rx="3" fill="#7e8fb8"/><circle cx="24" cy="30" r="9" fill="#ffd7b0"/><circle cx="50" cy="26" r="9" fill="#ffd7b0"/><circle cx="76" cy="34" r="8" fill="#ffd7b0"/><path d="M14 62 v-14 a10 10 0 0 1 20 0 v14Z" fill="#3fb5ff"/><path d="M40 62 v-18 a10 10 0 0 1 20 0 v18Z" fill="#2f6fb8"/><path d="M68 62 v-12 a8 8 0 0 1 16 0 v12Z" fill="#ffcf4a"/><ellipse cx="50" cy="58" rx="8" ry="3" fill="#ff9ad5"/></svg>`,
+  story:`<svg viewBox="0 0 80 100"><rect x="14" y="6" width="52" height="88" rx="9" fill="#1d2c5c" stroke="#a46bff" stroke-width="3"/><path d="M22 14 h36" stroke="#ff9ad5" stroke-width="3" stroke-linecap="round"/><circle cx="40" cy="44" r="14" fill="#ffcf4a"/><path d="M33 46 q7 7 14 0" stroke="#1d1040" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="35" cy="40" r="2" fill="#1d1040"/><circle cx="45" cy="40" r="2" fill="#1d1040"/><path d="M48 54 q2 6 0 10" stroke="#3fb5ff" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M24 74 h32" stroke="#9fb1dc" stroke-width="3" stroke-linecap="round"/></svg>`,
+  hug:`<svg viewBox="0 0 100 100"><circle cx="36" cy="26" r="11" fill="#ffd7b0"/><circle cx="64" cy="26" r="11" fill="#ffd7b0"/><path d="M20 90 V56 a16 16 0 0 1 32 0 V90Z" fill="#3fb5ff"/><path d="M48 90 V56 a16 16 0 0 1 32 0 V90Z" fill="#2f6fb8"/><path d="M28 58 Q50 72 72 58" stroke="#ffd7b0" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M50 14 C44 8 46 2 50 5 C54 2 56 8 50 14Z" fill="#ff5f7e"/></svg>`,
+  trophy:`<svg viewBox="0 0 100 100"><path d="M30 14 H70 V40 a20 20 0 0 1 -40 0Z" fill="#ffcf4a"/><path d="M30 20 H16 a12 12 0 0 0 14 18 M70 20 H84 a12 12 0 0 1 -14 18" stroke="#ffcf4a" stroke-width="4" fill="none"/><rect x="44" y="58" width="12" height="14" fill="#c99a16"/><rect x="32" y="72" width="36" height="10" rx="3" fill="#a46bff"/><text x="50" y="42" font-size="14" fill="#1d1040" text-anchor="middle" font-family="sans-serif" font-weight="900">#1</text><path d="M84 66 l3 6 6 2 -6 2 -3 6 -3-6 -6-2 6-2Z" fill="#ff9ad5"/></svg>`,
+  medal:`<svg viewBox="0 0 100 100"><path d="M34 8 L50 40 L66 8" stroke="#3fb5ff" stroke-width="10" fill="none"/><circle cx="50" cy="60" r="24" fill="#eef3ff"/><circle cx="50" cy="60" r="17" fill="none" stroke="#3fb5ff" stroke-width="3"/><path d="M41 60 l6 6 12 -12" stroke="#2f6fb8" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  dance:`<svg viewBox="0 0 80 100"><rect x="14" y="6" width="52" height="88" rx="9" fill="#1d2c5c" stroke="#ff9ad5" stroke-width="3"/><circle cx="40" cy="30" r="7" fill="#ffd7b0"/><path d="M40 38 v20 M40 44 l-12 -8 M40 44 l12 -10 M40 58 l-10 16 M40 58 l10 14" stroke="#a46bff" stroke-width="5" stroke-linecap="round"/><path d="M22 84 h20" stroke="#9fb1dc" stroke-width="3" stroke-linecap="round"/><text x="56" y="88" font-size="10" fill="#ffcf4a" text-anchor="middle" font-family="sans-serif">♪</text></svg>`,
+  guitar:`<svg viewBox="0 0 100 100"><path d="M64 10 l14 14 -24 24" stroke="#c99a16" stroke-width="7" stroke-linecap="round"/><path d="M44 42 c-8 -2 -14 2 -16 8 c-12 0 -20 10 -18 22 c2 12 14 20 26 18 c10 -2 16 -10 16 -18 c6 -2 10 -8 8 -16Z" fill="#3fb5ff"/><circle cx="36" cy="64" r="7" fill="#0d1b3d"/><path d="M76 8 l6 -4 M84 16 l6 -2" stroke="#eef3ff" stroke-width="3" stroke-linecap="round"/><path d="M80 48 q6 4 4 12" stroke="#ffcf4a" stroke-width="3" fill="none"/><circle cx="83" cy="62" r="3" fill="#ffcf4a"/></svg>`,
+  anon:`<svg viewBox="0 0 100 100"><rect x="10" y="14" width="80" height="58" rx="10" fill="#1d2c5c" stroke="#a46bff" stroke-width="3"/><circle cx="34" cy="38" r="10" fill="#7e8fb8"/><text x="34" y="43" font-size="14" fill="#fff" text-anchor="middle" font-family="sans-serif" font-weight="900">?</text><path d="M52 32 h26 M52 44 h18" stroke="#9fb1dc" stroke-width="4" stroke-linecap="round"/><path d="M30 72 L24 88 L44 72" fill="#1d2c5c" stroke="#a46bff" stroke-width="3" stroke-linejoin="round"/><text x="74" y="66" font-size="9" fill="#ffcf4a" text-anchor="middle" font-family="sans-serif">AM 3:12</text></svg>`,
+  call:`<svg viewBox="0 0 100 100"><path d="M26 14 l14 4 4 18 -10 6 c4 10 12 18 22 22 l6 -10 18 4 4 14 c-4 10 -14 14 -24 10 C38 72 24 58 18 38 c-4 -10 0 -20 8 -24Z" fill="#3fb5ff"/><path d="M62 18 a20 20 0 0 1 20 20 M62 28 a10 10 0 0 1 10 10" stroke="#ffcf4a" stroke-width="4" fill="none" stroke-linecap="round"/></svg>`,
+  screen:`<svg viewBox="0 0 100 100"><rect x="8" y="16" width="84" height="56" rx="6" fill="#1d2c5c" stroke="#a46bff" stroke-width="3"/><path d="M14 66 L36 40 L50 54 L64 36 L86 66Z" fill="#7a5cd6"/><circle cx="74" cy="28" r="6" fill="#ffcf4a"/><path d="M40 84 h20 M50 72 v12" stroke="#9fb1dc" stroke-width="4" stroke-linecap="round"/><text x="22" y="30" font-size="9" fill="#fff" font-family="sans-serif" font-weight="700">4K</text></svg>`,
+  walk:`<svg viewBox="0 0 100 100"><circle cx="78" cy="20" r="10" fill="#ffcf4a"/><path d="M6 80 Q30 60 52 72 T96 66 V96 H6Z" fill="#2f6fb8"/><circle cx="40" cy="28" r="8" fill="#ffd7b0"/><path d="M40 36 v22 M40 44 l-10 8 M40 44 l10 6 M40 58 l-8 14 M40 58 l8 14" stroke="#3fb5ff" stroke-width="5" stroke-linecap="round"/><path d="M14 22 q6 -6 12 0 M60 40 q4 -4 8 0" stroke="#eef3ff" stroke-width="2" fill="none"/></svg>`
+};
+
+const ROUNDS = [
+  {theme:"관계의 가치 탐색", q:"나를 진짜 힘나게 하는 건?",
+   A:{sub:"부캐의 온라인 피드백", main:"SNS 게시물에 1초 만에 찍히는 하트 100개", note:"알고리즘 속에 갇힌 무의식적 반응", icon:"phone"},
+   B:{sub:"본캐의 아날로그 연결", main:"내 눈을 바라보며 진짜 장점을 칭찬해 주는 친구 1명과의 대화", note:"진심 어린 대화", icon:"talk"},
+   fA:"하트는 빠르지만 <b>금방 사라지죠.</b> 하트 100개 중 내 이름을 기억하는 사람은 몇 명일까요?",
+   fB:"눈을 보고 듣는 칭찬은 <b>오래 남아요.</b> 오늘 그 친구 1명은 누구인지 떠올려 보세요."},
+  {theme:"정서와 시간의 주도권", q:"내 3시간의 운전대는 누가 잡을까?",
+   A:{sub:"가짜 보상 몬스터의 자극", main:"알고리즘이 내 취향을 분석해 쉴 새 없이 떠먹여 주는 3시간 순삭 무한 스크롤", note:"시간이 사라지는 느낌", icon:"monster"},
+   B:{sub:"현실 세로토닌 몰입 활동", main:"내가 계획을 세워 땀 흘리며 달리거나, 좋아하는 아날로그 취미에 온전히 몰입하는 3시간", note:"주체적인 3시간", icon:"run"},
+   fA:"무한 스크롤의 운전대는 <b>알고리즘</b>이 잡고 있어요. 끝나고 남는 기분은 어떤가요?",
+   fB:"직접 고른 3시간은 끝나도 <b>뿌듯함이 남아요.</b> 운전대를 내가 잡았으니까요."},
+  {theme:"자아정체성 탐색", q:"가짜 가면 vs 진짜 자아",
+   A:{sub:"필터 속 가공된 이미지", main:"완벽한 보정 필터 뒤에 숨어 사람들의 부러움을 사는 가상 속 완벽한 나", note:"부캐 아바타", icon:"filter"},
+   B:{sub:"있는 그대로의 단단한 자아", main:"겉모습은 평범해도 화면 밖에서 내 감정을 스스로 다스릴 줄 아는 당당한 나", note:"본캐 자아", icon:"calm"},
+   fA:"필터는 벗으면 끝나지만 <b>필터를 계속 유지하는 건 피곤한 일</b>이에요.",
+   fB:"필터 없이도 괜찮은 나, <b>그게 진짜 레벨업</b>이에요."},
+  {theme:"성장의 기준", q:"나는 누구와 비교하며 자랄까?", bonus:true,
+   A:{sub:"타인의 하이라이트", main:"남들의 멋진 순간만 모은 영상과 내 일상을 비교하며 보내는 밤", note:"끝없는 비교 루프", icon:"compare"},
+   B:{sub:"어제의 나와의 비교", main:"어제의 나보다 딱 한 걸음 나아진 오늘을 스스로 알아차리기", note:"나만의 성장 그래프", icon:"stairs"},
+   fA:"남의 <b>하이라이트</b>와 나의 <b>비하인드</b>를 비교하면 늘 지는 게임이 돼요.",
+   fB:"비교 대상이 어제의 나라면 <b>매일 이길 수 있는 게임</b>이에요."},
+  {theme:"하루의 마무리", q:"오늘의 엔딩 크레딧은?", bonus:true,
+   A:{sub:"블루라이트 엔딩", main:"잠들기 직전까지 손에 쥔 스마트폰, '딱 한 개만 더' 보기", note:"새벽까지 이어지는 다음 영상", icon:"bed"},
+   B:{sub:"5분 회고 엔딩", main:"폰은 침대 밖에 두고, 오늘 좋았던 일 3가지를 적는 5분 일기", note:"하루를 내 손으로 마무리", icon:"diary"},
+   fA:"'한 개만 더'는 <b>내일의 컨디션</b>에서 빌려 오는 시간이에요.",
+   fB:"좋았던 일 3가지는 <b>뇌가 하루를 좋게 기억하게</b> 도와줘요."},
+  {theme:"집중력 지키기", q:"공부할 때 내 옆자리는?", bonus:true,
+   A:{sub:"알림 대기 모드", main:"책상 위에 폰을 두고 '혹시 연락 왔나' 5분마다 확인하며 하는 공부", note:"집중이 계속 끊기는 2시간", icon:"bell"},
+   B:{sub:"딥 포커스 모드", main:"폰은 가방 속에 넣고 50분 집중, 10분 쉬는 시간에만 확인하기", note:"짧고 굵은 1시간", icon:"book"},
+   fA:"알림을 한 번 확인하면 다시 집중하기까지 <b>생각보다 오래</b> 걸려요.",
+   fB:"폰이 <b>눈에 안 보이기만 해도</b> 집중은 훨씬 쉬워져요."},
+  {theme:"갈등 해결", q:"친구에게 서운한 일이 생겼다면?", bonus:true,
+   A:{sub:"온라인 저격", main:"이름은 안 쓰고 누가 봐도 알 수 있게 SNS에 저격글 올리기", note:"댓글로 번지는 오해", icon:"bomb"},
+   B:{sub:"얼굴 보고 말하기", main:"직접 만나서 \"나는 이런 점이 서운했어\"라고 내 마음을 말하기", note:"용기가 필요한 5분", icon:"hug"},
+   fA:"저격글은 <b>사과받을 기회</b>보다 <b>구경꾼</b>을 더 많이 만들어요.",
+   fB:"'너는'이 아니라 <b>'나는'으로 시작하는 말</b>이 관계를 지켜요."},
+  {theme:"주말 사용법", q:"황금 같은 토요일 오후!", bonus:true,
+   A:{sub:"방구석 레벨업", main:"하루 종일 방에서 게임 캐릭터 레벨 올리기", note:"캐릭터는 강해지는데 나는?", icon:"game"},
+   B:{sub:"현실 레벨업", main:"친구들과 공원에서 자전거 타고 배드민턴 치기", note:"내 체력이 오르는 시간", icon:"bike"},
+   fA:"게임도 좋은 휴식이에요. 다만 <b>하루 전부</b>를 주면 몸이 아쉬워해요.",
+   fB:"땀 흘린 뒤의 개운함은 <b>현실에서만 얻는 보상</b>이에요."},
+  {theme:"추억 남기기", q:"기다리던 콘서트 현장에 왔다면?", bonus:true,
+   A:{sub:"화면으로 남기는 추억", main:"공연 내내 폰을 들고 찍어서 바로 SNS에 올리기", note:"영상은 남지만 시야는 6인치", icon:"rec"},
+   B:{sub:"눈으로 새기는 추억", main:"폰은 주머니에 넣고 무대와 함성을 온몸으로 즐기기", note:"기록은 없지만 기억이 진함", icon:"eyes"},
+   fA:"영상으로 남기면 <b>다시 꺼내 볼 수 있다</b>는 장점이 있죠. 다만 그 순간 나는 화면을 보고 있었어요.",
+   fB:"온전히 몰입한 순간은 <b>몸이 기억</b>해요. 한두 곡만 찍고 나머지는 즐기는 것도 방법이에요."},
+  {theme:"식사 시간", q:"오늘 저녁 밥상 풍경은?", bonus:true,
+   A:{sub:"먹방은 화면 속", main:"영상 보며 밥 먹느라 무슨 반찬을 먹었는지도 기억 안 나는 식사", note:"눈은 화면, 입은 자동", icon:"tvfood"},
+   B:{sub:"대화가 반찬", main:"가족과 오늘 있었던 웃긴 일 이야기하며 천천히 먹는 식사", note:"맛도 기억도 남는 30분", icon:"family"},
+   fA:"화면을 보며 먹으면 <b>배부름도 늦게 느껴요.</b>",
+   fB:"같이 먹는 밥은 <b>하루를 나누는 시간</b>이기도 해요."},
+  {theme:"감정 표현", q:"오늘 정말 힘든 하루였다면?", bonus:true,
+   A:{sub:"괜찮은 척 스토리", main:"아무 일 없는 척 밝은 사진을 스토리에 올리고 좋아요 기다리기", note:"웃는 사진, 무거운 마음", icon:"story"},
+   B:{sub:"솔직한 한마디", main:"믿을 수 있는 사람에게 \"오늘 좀 힘들었어\"라고 털어놓기", note:"마음이 가벼워지는 대화", icon:"hug"},
+   fA:"괜찮은 척은 <b>마음을 숨길 뿐</b> 덜어 주진 않아요.",
+   fB:"힘들다고 말하는 건 <b>약한 게 아니라 단단한 것</b>이에요."},
+  {theme:"나의 가치", q:"나를 증명하는 숫자는?", bonus:true,
+   A:{sub:"숫자로 매기는 나", main:"게임 랭킹, 팔로워 수, 좋아요 개수가 곧 내 가치라고 믿기", note:"숫자가 떨어지면 나도 떨어진다?", icon:"trophy"},
+   B:{sub:"과정으로 아는 나", main:"결과가 아쉬워도 내가 노력한 과정을 스스로 인정해 주기", note:"숫자로 못 재는 성장", icon:"medal"},
+   fA:"숫자는 <b>매일 바뀌지만</b> 나라는 사람은 그렇게 쉽게 바뀌지 않아요.",
+   fB:"스스로 인정할 줄 알면 <b>남의 평가에 덜 흔들려요.</b>"},
+  {theme:"용돈 쓰는 법", q:"용돈 3만 원이 생겼다면?", bonus:true,
+   A:{sub:"가상 세계 꾸미기", main:"게임 속 내 아바타에게 한정판 스킨과 아이템 사 주기", note:"부캐가 멋져지는 3만 원", icon:"skin"},
+   B:{sub:"현실 세계 경험", main:"친구와 떡볶이 먹고 코인노래방 가서 실컷 놀기", note:"본캐가 즐거운 3만 원", icon:"snack"},
+   fA:"아바타 꾸미기도 <b>나를 표현하는 방법</b>이에요. 내가 정말 원해서 산 건지만 한번 생각해 봐요.",
+   fB:"친구와 함께한 경험은 <b>시간이 지날수록 더 좋은 추억</b>이 돼요."},
+  {theme:"외로움을 느낄 때", q:"갑자기 외로운 밤이라면?", bonus:true,
+   A:{sub:"익명의 대화", main:"랜덤 채팅에서 얼굴도 이름도 모르는 사람과 새벽까지 대화하기", note:"누군지 모르는 상대", icon:"anon"},
+   B:{sub:"먼저 거는 전화", main:"오랫동안 연락 못 한 친구에게 먼저 전화 걸어 안부 묻기", note:"어색함은 10초면 끝", icon:"call"},
+   fA:"익명의 상대는 <b>나를 지켜 주지 못할 수도</b> 있어요. 조심해야 해요.",
+   fB:"먼저 연락하는 사람이 <b>관계를 살리는 사람</b>이에요."},
+  {theme:"자연과 화면", q:"하늘이 유난히 예쁜 날!", bonus:true,
+   A:{sub:"화면 속 풍경", main:"방 안에서 4K 고화질 풍경 영상으로 '힐링' 하기", note:"선명하지만 바람은 없음", icon:"screen"},
+   B:{sub:"진짜 풍경", main:"밖으로 나가 동네를 20분 걷고 하늘 사진 한 장 찍어 오기", note:"햇볕과 바람이 함께", icon:"walk"},
+   fA:"영상도 쉼이 되지만 <b>햇볕과 바람</b>은 화면으로 전해지지 않아요.",
+   fB:"20분 산책만으로도 <b>기분을 바꾸는 효과</b>가 있어요."}
+];
+
+const TYPES = [ // 본캐(B) 선택 비율 기준, 위에서부터 판정
+  {min:.85, range:"85% 이상", name:"단단한 본캐 마스터", desc:"화면 밖의 나를 아끼는 감각이 단단해요. 그렇다고 가상 세계를 멀리할 필요는 없어요. 지금처럼 내가 고르고, 내가 즐기면 충분해요.", mission:"친구 1명을 본캐 세계로 초대하기 (같이 산책, 운동, 수다 무엇이든 좋아요)"},
+  {min:.6, range:"60~84%", name:"본캐 지킴이", desc:"대부분 현실의 나를 골랐고, 가상 세계의 재미도 솔직하게 인정했어요. 내가 어디에 끌리는지 아는 것 자체가 큰 힘이에요.", mission:"부캐를 골랐던 상황 하나를 골라 이번 주에 한 번만 B로 해 보기"},
+  {min:.4, range:"40~59%", name:"균형 잡힌 듀얼 플레이어", desc:"두 세계를 모두 즐길 줄 아는 사람이에요. 여기서 본캐 쪽으로 딱 한 칸만 옮겨 보면, 화면 밖에도 재미있는 게 생각보다 많다는 걸 발견하게 될 거예요.", mission:"하루 30분 '폰 쉬는 시간'을 정하고, 그 시간에 하고 싶었던 일 하나 해 보기"},
+  {min:.15, range:"15~39%", name:"부캐 몰입러", desc:"가상 세계에서 재미와 위로를 잘 찾는 사람이에요. 다만 오늘 선택을 보면 화면 밖의 본캐가 조금 심심해하고 있을지도 몰라요. 좋아하는 건 그대로 두고, 하루에 한 번은 본캐에게도 시간을 내어 줘 볼까요?", mission:"이번 주 3일, 30분씩 폰을 다른 방에 두고 하고 싶었던 활동 해 보기"},
+  {min:0, range:"15% 미만", name:"가상 세계 탐험가", desc:"가상 세계를 누구보다 잘 아는 탐험가예요. 솔직하게 고른 것도 멋져요. 그런데 화면 속 지도는 넓은데, 현실 세계 지도는 아직 빈칸이 많아 보여요. 몸과 마음이 진짜로 충전되는 곳은 화면 밖일 때가 많아요. 오늘부터 한 칸씩 채워 봐요.", mission:"일주일 동안 매일 20분, 폰 없이 밖에 나가 걷거나 몸을 움직여 보기"}
+];
+
+const LIMIT = 15;
+let L = ROUNDS;
+let state = {i:0, picks:[], locked:false};
+let timerId = null, tLeft = LIMIT;
+const app = document.getElementById("app");
+
+function intro(){
+  stopTimer();
+  state = {i:0, picks:[], locked:false};
+  app.innerHTML = `
+  <section class="intro">
+    <span class="badge">디지털 웰빙 밸런스 게임</span>
+    <h1><span class="v">부캐</span> vs <span class="r">본캐</span></h1>
+    <p>가상 세계의 나와 현실 세계의 나, 매 라운드 하나만 고를 수 있어요. 선택할 때마다 줄다리기 매듭이 움직여요.</p>
+    <div class="rules">
+      <div><b>상황 15개</b>A(가상) 또는 B(현실) 중 하나</div>
+      <div><b>15초 타이머</b>길게 고민하지 말고 직감으로</div>
+      <div><b>결과 유형 + 미션</b>마지막에 나의 캐릭터 공개</div>
+    </div>
+    <div class="row"><button class="cta" id="start">전체 15라운드</button><button class="ghost" id="quick">빠른 5라운드 (랜덤)</button></div>
+    <p class="hint">키보드: A / B 또는 ← / →</p>
+  </section>`;
+  document.getElementById("start").onclick = ()=>{ L = ROUNDS; round(); };
+  document.getElementById("quick").onclick = ()=>{ L = [...ROUNDS].sort(()=>Math.random()-.5).slice(0,5); round(); };
+}
+
+function pos(){ // -100(부캐) ~ +100(본캐)
+  const n = state.picks.length; if(!n) return 0;
+  const b = state.picks.filter(p=>p==="B").length;
+  return ((b - (n-b)) / L.length) * 100;
+}
+
+function hud(){
+  const dots = L.map((_,k)=>{
+    const p = state.picks[k];
+    return `<i class="${p==="A"?"a":p==="B"?"b":k===state.i?"now":""}"></i>`;
+  }).join("");
+  const left = 50 + pos()*0.44;
+  return `<div class="hud">
+    <div class="hudtop"><div class="roundno">ROUND <span>${Math.min(state.i+1,L.length)}</span> / ${L.length}</div><div class="dots">${dots}</div></div>
+    <div class="tug" aria-label="부캐와 본캐 줄다리기"><span class="lbl l">부캐 (가상)</span><span class="lbl rr">본캐 (현실)</span><div class="knot" id="knot" style="left:${left}%"></div></div>
+  </div>`;
+}
+
+function card(side, o){
+  return `<button class="card ${side}" data-side="${side}" id="card${side}">
+    <div class="tag"><span class="pill">선택 ${side} · ${side==="A"?"가상 세계 / 부캐":"현실 세계 / 본캐"}</span><span class="key">${side}</span></div>
+    <div class="art">${ICON[o.icon]}</div>
+    <div class="sub">${o.sub}</div>
+    <div class="main">${o.main}</div>
+    <div class="note">${o.note}</div>
+  </button>`;
+}
+
+function round(){
+  const r = L[state.i];
+  state.locked = false;
+  app.innerHTML = hud() + `
+    <div class="timer" id="timer"><i id="bar"></i></div>
+    <div class="theme"><small>ROUND ${state.i+1} · ${r.theme}</small><h2>${r.q}</h2></div>
+    <div class="arena">${card("A",r.A)}<div class="vs">VS</div>${card("B",r.B)}</div>
+    <div id="fb"></div>`;
+  app.querySelectorAll(".card").forEach(c=>c.onclick=()=>pick(c.dataset.side));
+  startTimer();
+}
+
+function startTimer(){
+  stopTimer(); tLeft = LIMIT;
+  const bar = document.getElementById("bar"), t = document.getElementById("timer");
+  bar.style.transform = "scaleX(1)";
+  timerId = setInterval(()=>{
+    tLeft -= .1;
+    bar.style.transform = `scaleX(${Math.max(tLeft,0)/LIMIT})`;
+    if(tLeft < 5) t.classList.add("low");
+    if(tLeft <= 0){ stopTimer();
+      const fb = document.getElementById("fb");
+      if(fb && !state.locked) fb.innerHTML = `<p class="hint">⏱ 시간 초과! 그만큼 고민되는 질문이죠. 그래도 하나만 골라 주세요.</p>`;
+    }
+  },100);
+}
+function stopTimer(){ if(timerId){clearInterval(timerId); timerId=null;} }
+
+function pick(side){
+  if(state.locked) return;
+  state.locked = true; stopTimer();
+  state.picks[state.i] = side;
+  const r = L[state.i];
+  const me = document.getElementById("card"+side), other = document.getElementById("card"+(side==="A"?"B":"A"));
+  me.classList.add("picked"); other.classList.add("dim");
+  me.insertAdjacentHTML("beforeend",`<span class="stamp">PICK!</span>`);
+  app.querySelectorAll(".card").forEach(c=>c.disabled=true);
+  document.getElementById("knot").style.left = (50 + pos()*0.44) + "%";
+  const last = state.i === L.length-1;
+  document.getElementById("fb").innerHTML = `<div class="feedback"><p>${side==="A"?r.fA:r.fB}</p><button class="next" id="next">${last?"결과 보기":"다음 라운드"} →</button></div>`;
+  const nx = document.getElementById("next"); nx.focus();
+  nx.onclick = ()=>{ state.i++; last ? result() : round(); };
+}
+
+function result(){
+  stopTimer();
+  const b = state.picks.filter(p=>p==="B").length, a = L.length - b;
+  const t = TYPES.find(x=>b/L.length>=x.min);
+  const recap = L.map((r,k)=>{
+    const p = state.picks[k], o = r[p];
+    return `<div><span class="pill" style="background:var(${p==="A"?"--virtual":"--real"});color:${p==="A"?"#fff":"var(--night)"}">${p}</span><span>${o.main}</span><em>${r.theme}</em></div>`;
+  }).join("");
+  app.innerHTML = hud().replace(/ROUND <span>\d+<\/span>/,"FINAL <span>RESULT</span>") + `
+  <section class="result">
+    <span class="kicker">나의 캐릭터 유형</span>
+    <h1>${t.name}</h1>
+    <p class="desc">${t.desc}</p>
+    <div class="score"><div class="sa"><b>${a}</b>부캐 선택</div><div class="sb"><b>${b}</b>본캐 선택</div><div><b>${Math.round(b/L.length*100)}%</b>본캐 비율</div></div>
+    <div class="scale">${[...TYPES].reverse().map(x=>`<div class="${x===t?"me":""}"><b>${x.name}</b><span>본캐 ${x.range}</span></div>`).join("")}</div>
+    <div class="recap">${recap}</div>
+    <div class="mission"><strong>🎯 이번 주 본캐 레벨업 미션</strong>${t.mission}</div>
+    <div class="row"><button class="cta" id="again">다시 하기</button></div>
+  </section>`;
+  document.getElementById("again").onclick = intro;
+}
+
+document.addEventListener("keydown",e=>{
+  if(!document.getElementById("cardA")) return;
+  const k = e.key.toLowerCase();
+  if(k==="a"||e.key==="ArrowLeft") pick("A");
+  if(k==="b"||e.key==="ArrowRight") pick("B");
+});
+
+intro();
+</script>
+</body>
+</html>
